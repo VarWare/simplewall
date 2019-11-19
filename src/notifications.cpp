@@ -297,10 +297,14 @@ bool _app_notifyshow (HWND hwnd, PR_OBJECT ptr_log_object, bool is_forced, bool 
 	_app_notifysetpos (hwnd, false);
 
 	// prevent fullscreen apps lose focus
-	if (is_forced && _r_wnd_isfullscreenmode ())
+	const bool is_fullscreenmode = _r_wnd_isfullscreenmode ();
+
+	if (is_forced && is_fullscreenmode)
 		is_forced = false;
 
-	RedrawWindow (GetDlgItem (hwnd, IDC_HEADER_ID), nullptr, nullptr, RDW_NOFRAME | RDW_NOINTERNALPAINT | RDW_ERASE | RDW_INVALIDATE);
+	RedrawWindow (GetDlgItem (hwnd, IDC_HEADER_ID), nullptr, nullptr, RDW_NOFRAME | RDW_ERASE | RDW_INVALIDATE);
+
+	_r_wnd_top (hwnd, !is_fullscreenmode);
 
 	ShowWindow (hwnd, is_forced ? SW_SHOW : SW_SHOWNA);
 
@@ -399,7 +403,6 @@ void _app_notifysetpos (HWND hwnd, bool is_forced)
 		APPBARDATA abd = {0};
 
 		abd.cbSize = sizeof (abd);
-		//appbar.hWnd = FindWindow (L"Shell_TrayWnd", nullptr);
 
 		if (SHAppBarMessage (ABM_GETTASKBARPOS, &abd))
 		{
@@ -445,7 +448,7 @@ HFONT _app_notifyfontinit (HWND hwnd, PLOGFONT plf, LONG height, LONG weight, LP
 	plf->lfCharSet = DEFAULT_CHARSET;
 	plf->lfQuality = DEFAULT_QUALITY;
 
-	if (name)
+	if (!_r_str_isempty (name))
 		_r_str_copy (plf->lfFaceName, LF_FACESIZE, name);
 
 	return CreateFontIndirect (plf);
@@ -563,33 +566,20 @@ INT_PTR CALLBACK NotificationProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
 			return TRUE;
 		}
 
-		//case WM_ACTIVATE:
-		//{
-		//	switch (wparam)
-		//	{
-		//		case WA_ACTIVE:
-		//		case WA_CLICKACTIVE:
-		//		{
-		//			KillTimer (hwnd, NOTIFY_TIMER_SAFETY_ID);
-		//			SetTimer (hwnd, NOTIFY_TIMER_SAFETY_ID, NOTIFY_TIMER_SAFETY_TIMEOUT, nullptr);
+		case WM_ACTIVATE:
+		{
+			switch (wparam)
+			{
+				case WA_ACTIVE:
+				case WA_CLICKACTIVE:
+				{
+					_r_wnd_top (hwnd, true);
+					break;
+				}
+			}
 
-		//			break;
-		//		}
-
-		//		case WA_INACTIVE:
-		//		{
-		//			_r_ctrl_enable (hwnd, IDC_RULES_BTN, false);
-		//			_r_ctrl_enable (hwnd, IDC_ALLOW_BTN, false);
-		//			_r_ctrl_enable (hwnd, IDC_BLOCK_BTN, false);
-		//			_r_ctrl_enable (hwnd, IDC_LATER_BTN, false);
-
-		//			break;
-		//		}
-
-		//	}
-
-		//	break;
-		//}
+			break;
+		}
 
 		case WM_TIMER:
 		{
@@ -846,7 +836,9 @@ INT_PTR CALLBACK NotificationProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
 
 		case WM_COMMAND:
 		{
-			if ((LOWORD (wparam) >= IDX_RULES_SPECIAL && LOWORD (wparam) <= IDX_RULES_SPECIAL + rules_arr.size ()))
+			const INT ctrl_id = LOWORD (wparam);
+
+			if ((LOWORD (wparam) >= IDX_RULES_SPECIAL && LOWORD (wparam) <= INT (IDX_RULES_SPECIAL + rules_arr.size ())))
 			{
 				const size_t rule_idx = (LOWORD (wparam) - IDX_RULES_SPECIAL);
 				PR_OBJECT ptr_rule_object = _app_getrulebyid (rule_idx);
@@ -947,19 +939,19 @@ INT_PTR CALLBACK NotificationProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
 
 				return FALSE;
 			}
-			else if ((LOWORD (wparam) >= IDX_TIMER && LOWORD (wparam) <= IDX_TIMER + timers.size ()))
+			else if ((ctrl_id >= IDX_TIMER && ctrl_id <= INT (IDX_TIMER + timers.size ())))
 			{
 				if (!_r_ctrl_isenabled (hwnd, IDC_ALLOW_BTN))
 					return FALSE;
 
-				const size_t timer_idx = (LOWORD (wparam) - IDX_TIMER);
+				const size_t timer_idx = (ctrl_id - IDX_TIMER);
 
 				_app_notifycommand (hwnd, IDC_ALLOW_BTN, timers.at (timer_idx));
 
 				return FALSE;
 			}
 
-			switch (LOWORD (wparam))
+			switch (ctrl_id)
 			{
 				case IDCANCEL: // process Esc key
 				{
@@ -1005,8 +997,6 @@ INT_PTR CALLBACK NotificationProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
 
 				case IDC_RULES_BTN:
 				{
-					const INT ctrl_id = LOWORD (wparam);
-
 					if (_r_ctrl_isenabled (hwnd, ctrl_id))
 					{
 						// HACK!!!
@@ -1025,13 +1015,16 @@ INT_PTR CALLBACK NotificationProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lp
 				case IDC_ALLOW_BTN:
 				case IDC_BLOCK_BTN:
 				case IDC_LATER_BTN:
-				case IDM_DISABLENOTIFICATIONS:
 				{
-					const INT ctrl_id = LOWORD (wparam);
-
 					if (_r_ctrl_isenabled (hwnd, ctrl_id))
 						_app_notifycommand (hwnd, ctrl_id, 0);
 
+					break;
+				}
+
+				case IDM_DISABLENOTIFICATIONS:
+				{
+					_app_notifycommand (hwnd, ctrl_id, 0);
 					break;
 				}
 

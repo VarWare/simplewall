@@ -37,7 +37,6 @@ _R_FASTLOCK lock_cache;
 _R_FASTLOCK lock_checkbox;
 _R_FASTLOCK lock_logbusy;
 _R_FASTLOCK lock_logthread;
-_R_FASTLOCK lock_threadpool;
 _R_FASTLOCK lock_transaction;
 _R_FASTLOCK lock_writelog;
 
@@ -531,9 +530,7 @@ bool _app_changefilters (HWND hwnd, bool is_install, bool is_forced)
 	{
 		_app_initinterfacestate (hwnd, true);
 
-		_r_fastlock_acquireexclusive (&lock_threadpool);
 		_app_freethreadpool (&threads_pool);
-		_r_fastlock_releaseexclusive (&lock_threadpool);
 
 		PINSTALL_CONTEXT pcontext = new INSTALL_CONTEXT;
 		RtlSecureZeroMemory (pcontext, sizeof (INSTALL_CONTEXT));
@@ -545,10 +542,7 @@ bool _app_changefilters (HWND hwnd, bool is_install, bool is_forced)
 
 		if (hthread)
 		{
-			_r_fastlock_acquireexclusive (&lock_threadpool);
 			threads_pool.push_back (hthread);
-			_r_fastlock_releaseexclusive (&lock_threadpool);
-
 			ResumeThread (hthread);
 		}
 		else
@@ -2519,7 +2513,7 @@ void _app_resizewindow (HWND hwnd, LPARAM lparam)
 	SendDlgItemMessage (hwnd, IDC_STATUSBAR, WM_SIZE, 0, 0);
 
 	RECT rc = {0};
-	SendDlgItemMessage (hwnd, IDC_STATUSBAR, SB_GETRECT, 0, (LPARAM)&rc);
+	GetClientRect (GetDlgItem (hwnd, IDC_STATUSBAR), &rc);
 
 	const INT listview_id = _app_gettab_id (hwnd);
 	const INT statusbar_height = _R_RECT_HEIGHT (&rc);
@@ -2779,7 +2773,6 @@ void _app_initialize ()
 	_r_fastlock_initialize (&lock_checkbox);
 	_r_fastlock_initialize (&lock_logbusy);
 	_r_fastlock_initialize (&lock_logthread);
-	_r_fastlock_initialize (&lock_threadpool);
 	_r_fastlock_initialize (&lock_transaction);
 	_r_fastlock_initialize (&lock_writelog);
 
@@ -2997,7 +2990,7 @@ INT_PTR CALLBACK DlgProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 			_app_profile_load (hwnd);
 
 			// add blocklist to update
-			app.UpdateAddComponent (L"Internal rules", L"profile_internal", _r_fmt (L"%" PRId64, config.profile_internal_timestamp), config.profile_internal_path, false);
+			app.UpdateAddComponent (L"Internal rules", L"profile_internal", _r_fmt (L"%" PRIi64, config.profile_internal_timestamp), config.profile_internal_path, false);
 
 			// initialize tab
 			_app_settab_id (hwnd, app.ConfigGet (L"CurrentTab", IDC_APPS_PROFILE).AsInt ());
@@ -3942,10 +3935,10 @@ INT_PTR CALLBACK DlgProc (HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 
 					const INT cmd = TrackPopupMenuEx (hsubmenu, TPM_RIGHTBUTTON | TPM_LEFTBUTTON | TPM_RETURNCMD, pt.x, pt.y, hwnd, nullptr);
 
+					DestroyMenu (hmenu);
+
 					if (cmd)
 						PostMessage (hwnd, WM_COMMAND, MAKEWPARAM (cmd, 0), (LPARAM)lv_column_current);
-
-					DestroyMenu (hmenu);
 
 					break;
 				}

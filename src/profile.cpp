@@ -263,53 +263,53 @@ size_t _app_getnetworkapp (size_t network_hash)
 
 void _app_freeapplication (size_t app_hash)
 {
-	if (app_hash)
+	if (!app_hash)
+		return;
+
+	for (size_t i = 0; i < rules_arr.size (); i++)
 	{
-		for (size_t i = 0; i < rules_arr.size (); i++)
+		PR_OBJECT ptr_rule_object = _r_obj_reference (rules_arr.at (i));
+
+		if (!ptr_rule_object)
+			continue;
+
+		const PITEM_RULE ptr_rule = (PITEM_RULE)ptr_rule_object->pdata;
+
+		if (ptr_rule)
 		{
-			PR_OBJECT ptr_rule_object = _r_obj_reference (rules_arr.at (i));
-
-			if (!ptr_rule_object)
-				continue;
-
-			const PITEM_RULE ptr_rule = (PITEM_RULE)ptr_rule_object->pdata;
-
-			if (ptr_rule)
+			if (ptr_rule->type == DataRuleCustom)
 			{
-				if (ptr_rule->type == DataRuleCustom)
+				if (ptr_rule->apps.find (app_hash) != ptr_rule->apps.end ())
 				{
-					if (ptr_rule->apps.find (app_hash) != ptr_rule->apps.end ())
+					ptr_rule->apps.erase (app_hash);
+
+					if (ptr_rule->is_enabled && ptr_rule->apps.empty ())
 					{
-						ptr_rule->apps.erase (app_hash);
+						ptr_rule->is_enabled = false;
+						ptr_rule->is_haveerrors = false;
+					}
 
-						if (ptr_rule->is_enabled && ptr_rule->apps.empty ())
+					const INT rule_listview_id = _app_getlistview_id (ptr_rule->type);
+
+					if (rule_listview_id)
+					{
+						const INT item_pos = _app_getposition (app.GetHWND (), rule_listview_id, i);
+
+						if (item_pos != INVALID_INT)
 						{
-							ptr_rule->is_enabled = false;
-							ptr_rule->is_haveerrors = false;
-						}
-
-						const INT rule_listview_id = _app_getlistview_id (ptr_rule->type);
-
-						if (rule_listview_id)
-						{
-							const INT item_pos = _app_getposition (app.GetHWND (), rule_listview_id, i);
-
-							if (item_pos != INVALID_INT)
-							{
-								_r_fastlock_acquireshared (&lock_checkbox);
-								_app_setruleiteminfo (app.GetHWND (), rule_listview_id, item_pos, ptr_rule, false);
-								_r_fastlock_releaseshared (&lock_checkbox);
-							}
+							_r_fastlock_acquireshared (&lock_checkbox);
+							_app_setruleiteminfo (app.GetHWND (), rule_listview_id, item_pos, ptr_rule, false);
+							_r_fastlock_releaseshared (&lock_checkbox);
 						}
 					}
 				}
 			}
-
-			_r_obj_dereference (ptr_rule_object);
 		}
 
-		apps.erase (app_hash);
+		_r_obj_dereference (ptr_rule_object);
 	}
+
+	apps.erase (app_hash);
 }
 
 void _app_getcount (PITEM_STATUS ptr_status)
@@ -373,7 +373,7 @@ void _app_getcount (PITEM_STATUS ptr_status)
 	}
 }
 
-INT _app_getappgroup (size_t app_hash, PITEM_APP const ptr_app)
+INT _app_getappgroup (size_t app_hash, const PITEM_APP ptr_app)
 {
 	//	if(!app.ConfigGet (L"IsEnableGroups", false).AsBool ())
 	//		return INVALID_INT;
@@ -388,7 +388,7 @@ INT _app_getappgroup (size_t app_hash, PITEM_APP const ptr_app)
 	return ptr_app->is_enabled ? 0 : 2;
 }
 
-INT _app_getrulegroup (PITEM_RULE const ptr_rule)
+INT _app_getrulegroup (const PITEM_RULE ptr_rule)
 {
 	//	if(!app.ConfigGet (L"IsEnableGroups", false).AsBool ())
 	//		return INVALID_INT;
@@ -402,7 +402,7 @@ INT _app_getrulegroup (PITEM_RULE const ptr_rule)
 	return 0;
 }
 
-INT _app_getruleicon (PITEM_RULE const ptr_rule)
+INT _app_getruleicon (const PITEM_RULE ptr_rule)
 {
 	if (!ptr_rule)
 		return 0;
@@ -823,7 +823,7 @@ void _app_ruleblocklistset (HWND hwnd, INT spy_state, INT update_state, INT extr
 	}
 }
 
-rstring _app_rulesexpandapps (PITEM_RULE const ptr_rule, bool is_fordisplay, LPCWSTR delimeter)
+rstring _app_rulesexpandapps (const PITEM_RULE ptr_rule, bool is_fordisplay, LPCWSTR delimeter)
 {
 	rstring result;
 
@@ -973,7 +973,7 @@ bool _app_isapphaverule (size_t app_hash)
 	return false;
 }
 
-bool _app_isappused (PITEM_APP const ptr_app, size_t app_hash)
+bool _app_isappused (const PITEM_APP ptr_app, size_t app_hash)
 {
 	if (ptr_app && (ptr_app->is_enabled || ptr_app->is_silent) || _app_isapphaverule (app_hash))
 		return true;
@@ -981,7 +981,7 @@ bool _app_isappused (PITEM_APP const ptr_app, size_t app_hash)
 	return false;
 }
 
-bool _app_isappexists (PITEM_APP const ptr_app)
+bool _app_isappexists (const PITEM_APP ptr_app)
 {
 	if (!ptr_app)
 		return false;

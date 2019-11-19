@@ -286,7 +286,7 @@ void _app_freeobjects_vec (OBJECTS_VEC & ptr_vec)
 	ptr_vec.clear ();
 }
 
-void _app_freethreadpool (THREADS_VEC * ptr_pool)
+void _app_freethreadpool (THREADS_VEC* ptr_pool)
 {
 	if (!ptr_pool || ptr_pool->empty ())
 		return;
@@ -324,7 +324,7 @@ void _app_freelogstack ()
 	}
 }
 
-void _app_getappicon (PITEM_APP ptr_app, bool is_small, PINT picon_id, HICON * picon)
+void _app_getappicon (const PITEM_APP ptr_app, bool is_small, PINT picon_id, HICON* picon)
 {
 	const bool is_iconshidden = app.ConfigGet (L"IsIconsHidden", false).AsBool ();
 
@@ -441,7 +441,7 @@ bool _app_getfileicon (LPCWSTR path, bool is_small, PINT picon_id, HICON * picon
 	return result;
 }
 
-PR_OBJECT _app_getsignatureinfo (size_t app_hash, PITEM_APP ptr_app)
+PR_OBJECT _app_getsignatureinfo (size_t app_hash, const PITEM_APP ptr_app)
 {
 	if (!app.ConfigGet (L"IsCertificatesEnabled", false).AsBool ())
 		return nullptr;
@@ -542,7 +542,7 @@ PR_OBJECT _app_getsignatureinfo (size_t app_hash, PITEM_APP ptr_app)
 	return ptr_cache_object;
 }
 
-PR_OBJECT _app_getversioninfo (size_t app_hash, PITEM_APP ptr_app)
+PR_OBJECT _app_getversioninfo (size_t app_hash, const PITEM_APP ptr_app)
 {
 	if (!app_hash || !ptr_app || _r_str_isempty (ptr_app->real_path))
 		return nullptr;
@@ -871,6 +871,7 @@ rstring _app_getservicename (UINT16 port, LPCWSTR empty_text)
 			return L"kis";
 
 		case 194:
+		case 529:
 			return L"irc";
 
 		case 195:
@@ -1007,6 +1008,9 @@ rstring _app_getservicename (UINT16 port, LPCWSTR empty_text)
 
 		case 993:
 			return L"imaps";
+
+		case 994:
+			return L"ircs";
 
 		case 995:
 			return L"pop3s";
@@ -1436,7 +1440,7 @@ rstring _app_getstatename (DWORD state)
 	return nullptr;
 }
 
-rstring _app_getservicenamefromtag (HANDLE pid, PVOID ptag)
+rstring _app_getservicenamefromtag (HANDLE pid, const PVOID ptag)
 {
 	rstring result;
 	const HMODULE hlib = GetModuleHandle (L"advapi32.dll");
